@@ -7,7 +7,7 @@
 import Foundation
 import Combine
 
-public class Bridge : BridgeMessenger {
+public class Bridge {
     
     private let messenger : BridgeMessenger
     private let listener : BridgeListener
@@ -28,6 +28,11 @@ public class Bridge : BridgeMessenger {
         }
     }
     
+    public func send<T:Encodable>(path: String, content: T) throws {
+        let data = try encoder.encode(content)
+        try messenger.sendMessage(path: path, data: data)
+    }
+    
     public func publish(path : String) -> AnyPublisher<BridgeMessage, Never> {
         if let subject = subjects[path] {
             return subject.eraseToAnyPublisher()
@@ -41,7 +46,4 @@ public class Bridge : BridgeMessenger {
         return publish(path: path).decodeContent()
     }
     
-    public func sendMessage(path: String, content: String) throws {
-        try messenger.sendMessage(path: path, content: content)
-    }
 }

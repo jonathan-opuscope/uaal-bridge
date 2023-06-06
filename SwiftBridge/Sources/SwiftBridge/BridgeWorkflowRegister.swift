@@ -1,6 +1,5 @@
 //
-//  File.swift
-//  
+//  BridgeWorkflowRegister.swift
 //
 //  Created by Jonathan Thorpe on 05/06/2023.
 //
@@ -51,7 +50,7 @@ public class BridgeWorkflowRegister {
     
     private var subscriptions = Set<AnyCancellable>()
     
-    init(bridge: Bridge) {
+    public init(bridge: Bridge) {
         self.bridge = bridge
         self.bridge.publishContent(path: WorkflowRequest.path)
             .sink { [weak self] (request : WorkflowRequest) in
@@ -73,6 +72,7 @@ public class BridgeWorkflowRegister {
                     }
                     break
                 case let asyncImplementation as AsyncWorkflowImplementation:
+                    // keep tasks stored to allow cancellation
                     self.incomingWorkflowTasks[request.identifier] = Task { () -> Void in
                         defer { self.incomingWorkflowTasks.removeValue(forKey: request.identifier) }
                         do {
@@ -117,12 +117,12 @@ public class BridgeWorkflowRegister {
     
     private func reportFailure(identifier: String, error: Error) throws {
         let failure = WorkflowFailure.from(identifier: identifier, error: error)
-        try bridge.sendMessage(path: WorkflowFailure.path, data: try encoder.encode(failure))
+        try bridge.send(path: WorkflowFailure.path, content: failure)
     }
     
     private func reportCompletion(identifier: String, result: String) throws {
         let completion = WorkflowCompletion(identifier: identifier, result: result)
-        try bridge.sendMessage(path: WorkflowCompletion.path, data: try encoder.encode(result))
+        try bridge.send(path: WorkflowCompletion.path, content: result)
     }
     
     private class AsyncCallbackContainer<TPayload: Decodable, TResult: Encodable> : AsyncWorkflowImplementation {

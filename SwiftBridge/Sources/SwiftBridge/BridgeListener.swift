@@ -36,7 +36,7 @@ public class DefaultBridgeListener : BridgeListener {
     private var subscription : AnyCancellable?
     private let subject = PassthroughSubject<BridgeMessage, Never>()
     
-    private init() {
+    public init() {
         subscription = NotificationCenter.default.publisher(for: BridgeNotification.notificationName).sink { value in
             guard let userInfo = value.userInfo else {
                 return

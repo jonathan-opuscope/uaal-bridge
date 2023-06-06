@@ -30,7 +30,7 @@ public class BridgeWorkflowPerformer {
     private var subscriptions = Set<AnyCancellable>()
     private var continuations : [String:CheckedContinuation<WorkflowCompletion, Error>] = [:]
     
-    init(bridge: Bridge) {
+    public init(bridge: Bridge) {
         self.bridge = bridge
         self.bridge.publishContent(path: WorkflowCompletion.path).sink { [weak self] (completion : WorkflowCompletion) in
             guard let continuation = self?.continuations[completion.identifier] else { return }
@@ -42,6 +42,12 @@ public class BridgeWorkflowPerformer {
             continuation.resume(throwing: failure.toError())
             self?.continuations.removeValue(forKey: failure.identifier)
         }.store(in: &subscriptions)
+    }
+    
+    // used for type specialization with async let or other cases when specialization of return type isn't easy
+    public func perform<TPayload, TResult>(_ t : TResult.Type, procedure: String, payload: TPayload) async throws -> TResult
+    where TPayload : Encodable, TResult : Decodable {
+        return try await perform(procedure: procedure, payload: payload)
     }
     
     public func perform<TPayload, TResult>(procedure: String, payload: TPayload) async throws -> TResult
@@ -59,7 +65,7 @@ public class BridgeWorkflowPerformer {
                 do {
                     let payload = String(decoding: try encoder.encode(payload), as: UTF8.self)
                     let request = WorkflowRequest(identifier: identifier, procedure: procedure, payload: payload)
-                    try bridge.sendMessage(path: WorkflowRequest.path, data: try encoder.encode(request))
+                    try bridge.send(path: WorkflowRequest.path, content: request)
                 } catch {
                     continuation.resume(throwing: error)
                     continuations.removeValue(forKey: identifier)
