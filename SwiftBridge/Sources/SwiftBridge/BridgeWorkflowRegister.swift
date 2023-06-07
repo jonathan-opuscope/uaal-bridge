@@ -97,6 +97,14 @@ public class BridgeWorkflowRegister {
     
     //MARK: Incoming
     
+    // for type specialization with closures which do not return anything (i.e. throw only)
+    public func register<TPayload: Decodable, TResult: Encodable> (
+        _ t : TResult.Type,
+        procedure: String,
+        callback : @escaping (TPayload) async throws -> TResult) throws {
+        try register(procedure: procedure, callback: callback)
+    }
+    
     public func register<TPayload: Decodable, TResult: Encodable> (
         procedure: String,
         callback : @escaping (TPayload) async throws -> TResult) throws {
@@ -104,6 +112,14 @@ public class BridgeWorkflowRegister {
                 throw BridgeWorkflowRegisterError.procedureConflict(procedure)
             }
             incomingWorkflowImplementations[procedure] = AsyncCallbackContainer(callback: callback, controller: self)
+    }
+    
+    // for type specialization with closures which do not return anything (i.e. throw only)
+    public func register<TPayload: Decodable, TResult: Encodable> (
+        _ t : TResult.Type,
+        procedure: String,
+        callback : @escaping (TPayload) throws -> TResult) throws {
+        try register(procedure: procedure, callback: callback)
     }
     
     public func register<TPayload: Decodable, TResult: Encodable> (

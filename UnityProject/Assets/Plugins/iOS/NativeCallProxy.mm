@@ -9,16 +9,10 @@ id<NativeCallsProtocol> api = NULL;
     api = aApi;
 }
 
-id<UnityNotificationsDelegate> notificationsDelegate = NULL;
-+(void) registerAPIforUnityNotifications:(id<UnityNotificationsDelegate>) aApi
-{
-    notificationsDelegate = aApi;
-}
-
 @end
 
 extern "C" {
     void showHostMainWindow(const char* color) { return [api showHostMainWindow:[NSString stringWithUTF8String:color]]; }
-    void payloadNotification(const char* path, const char* payload) { return [notificationsDelegate payloadNotification:[NSString stringWithUTF8String:path]:[NSString stringWithUTF8String:payload]];}
+    void sendMessage(const char* path, const char* content) { return [api sendMessage:[NSString stringWithUTF8String:path]:[NSString stringWithUTF8String:content]];}
 }
 

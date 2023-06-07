@@ -7,19 +7,15 @@
 @protocol NativeCallsProtocol
 @required
 - (void) showHostMainWindow:(NSString*)color;
+- (void) sendMessage:(NSString*)path:(NSString*)content;
 // other methods
 @end
 
-@protocol UnityNotificationsDelegate
-@required
-- (void) payloadNotification:(NSString*)path:(NSString*)payload;
-@end
 
 __attribute__ ((visibility("default")))
 @interface FrameworkLibAPI : NSObject
 // call it any time after UnityFrameworkLoad to set object implementing NativeCallsProtocol methods
 +(void) registerAPIforNativeCalls:(id<NativeCallsProtocol>) aApi;
-+(void) registerAPIforUnityNotifications:(id<UnityNotificationsDelegate>) aApi;
 @end
 
 

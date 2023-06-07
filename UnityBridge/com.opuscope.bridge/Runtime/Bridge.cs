@@ -16,7 +16,7 @@ namespace Opuscope.Bridge
     
     public interface IBridgeListener
     {
-        IObservable<BridgeMessage> Notifications { get; }
+        IObservable<BridgeMessage> Messages { get; }
     }
 
     public interface IBridgeMessenger
@@ -53,7 +53,7 @@ namespace Opuscope.Bridge
         {
             JsonSerializerSettings = _serializerSettings ?? new JsonSerializerSettings();
             _messenger = messenger;
-            _notificationSubscription = listener.Notifications.Subscribe(notification =>
+            _notificationSubscription = listener.Messages.Subscribe(notification =>
             {
                 if (_subjects.TryGetValue(notification.Path, out Subject<BridgeMessage> subject))
                 {

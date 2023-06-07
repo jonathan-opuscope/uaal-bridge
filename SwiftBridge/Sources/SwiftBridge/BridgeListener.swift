@@ -27,6 +27,20 @@ public protocol BridgeListener {
     var messages : AnyPublisher<BridgeMessage, Never> { get }
 }
 
+public class BroadcastingBridgeListener : BridgeListener {
+    
+    public var messages : AnyPublisher<BridgeMessage, Never> {
+        subject.eraseToAnyPublisher()
+    }
+    
+    private let subject = PassthroughSubject<BridgeMessage, Never>()
+    
+    func broadcast(message : BridgeMessage) {
+        self.subject.send(message)
+    }
+    
+}
+
 public class DefaultBridgeListener : BridgeListener {
     
     public var messages : AnyPublisher<BridgeMessage, Never> {
