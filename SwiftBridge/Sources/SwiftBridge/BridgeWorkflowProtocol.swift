@@ -8,8 +8,8 @@ import Foundation
 
 public enum WorkflowError : Error {
     case noBridge
-    case invalidProcedure(String)
-    case runtime(type: String, message: String)
+    case invalidProcedure(String?)
+    case runtime(type: String, message: String?)
     case unknown
 }
 
@@ -21,11 +21,13 @@ struct WorkflowCompletion : Codable {
 
 struct WorkflowFailure : Codable {
     static let path = "/workflow/failed"
-    static let cancellationType = "CancelledWorkflow"
-    static let invalidType = "InvalidWorkflow"
+    enum ErrorTypes {
+        static let cancellationType = "CancelledWorkflow"
+        static let invalidType = "InvalidWorkflow"
+    }
     let identifier : String
     let type : String
-    let message : String
+    let message : String?
 }
 
 struct WorkflowRequest : Codable {

@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using UniRx;
+using UnityEngine;
 
 namespace Opuscope.Bridge
 {

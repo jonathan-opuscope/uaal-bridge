@@ -12,6 +12,11 @@ namespace Opuscope.Bridge
     
         [JsonProperty("result")]
         public string Result { get; set; }
+        
+        public override string ToString()
+        {
+            return $"{GetType().Name} {nameof(Identifier)} {Identifier} {nameof(Result)} {Result}";
+        }
 
         public static WorkflowCompletion Make(string identifier, string result) => new ()
         {
@@ -23,7 +28,13 @@ namespace Opuscope.Bridge
     public class WorkflowFailure
     {
         public static string Path => "/workflow/failed";
-    
+
+        public struct ErrorTypes
+        {
+            public const string CancelledWorkflow = "CancelledWorkflow";
+            public const string InvalidWorkflow = "InvalidWorkflow";            
+        }
+        
         [JsonProperty("identifier")]
         public string Identifier { get; set; }
     
@@ -33,14 +44,33 @@ namespace Opuscope.Bridge
         [JsonProperty("message")]
         public string Message { get; set; }
         
+        public override string ToString()
+        {
+            return $"{GetType().Name} {nameof(Identifier)} {Identifier} {nameof(Type)} {Type} {nameof(Message)} {Message}";
+        }
+        
         public static WorkflowFailure Make(string identifier, Exception e)
         {
-            return new WorkflowFailure();
+            return e switch
+            {
+                OperationCanceledException operationCanceledException 
+                    => new WorkflowFailure {Identifier = identifier, Type = ErrorTypes.CancelledWorkflow},
+                InvalidWorkflowException invalidWorkflowException 
+                    => new WorkflowFailure {Identifier = identifier, Type = ErrorTypes.InvalidWorkflow, Message = invalidWorkflowException.Message},
+                RuntimeWorkflowException runtimeWorkflowException 
+                    => new WorkflowFailure {Identifier = identifier, Type = runtimeWorkflowException.Type, Message = runtimeWorkflowException.Message},
+                _ => new WorkflowFailure {Identifier = identifier, Type = e.GetType().Name, Message = e.Message}
+            };
         }
 
         public Exception ToException()
         {
-            return new Exception();
+            return Type switch
+            {
+                ErrorTypes.CancelledWorkflow => new OperationCanceledException(),
+                ErrorTypes.InvalidWorkflow => new InvalidWorkflowException(Message),
+                _ => new RuntimeWorkflowException(Type, Message)
+            };
         }
     }
 
@@ -56,6 +86,11 @@ namespace Opuscope.Bridge
     
         [JsonProperty("payload")]
         public string Payload { get; set; }
+
+        public override string ToString()
+        {
+            return $"{GetType().Name} {nameof(Identifier)} {Identifier} {nameof(Procedure)} {Procedure} {nameof(Payload)} {Payload}";
+        }
     }
 
     public class WorkflowCancellation
@@ -64,5 +99,10 @@ namespace Opuscope.Bridge
     
         [JsonProperty("identifier")]
         public string Identifier { get; set; }
+        
+        public override string ToString()
+        {
+            return $"{GetType().Name} {nameof(Identifier)} {Identifier}";
+        }
     }
 }

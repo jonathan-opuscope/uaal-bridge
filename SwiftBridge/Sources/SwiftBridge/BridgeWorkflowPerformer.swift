@@ -10,9 +10,9 @@ import Combine
 extension WorkflowFailure {
     func toError() -> Error {
         switch type {
-        case WorkflowFailure.invalidType:
+        case WorkflowFailure.ErrorTypes.invalidType:
             return WorkflowError.invalidProcedure(message)
-        case WorkflowFailure.cancellationType:
+        case WorkflowFailure.ErrorTypes.cancellationType:
             return CancellationError()
         default:
             return WorkflowError.runtime(type: type, message: message)
@@ -33,12 +33,20 @@ public class BridgeWorkflowPerformer {
     public init(bridge: Bridge) {
         self.bridge = bridge
         self.bridge.publishContent(path: WorkflowCompletion.path).sink { [weak self] (completion : WorkflowCompletion) in
-            guard let continuation = self?.continuations[completion.identifier] else { return }
+            guard let continuation = self?.continuations[completion.identifier] else {
+                print("Received \(String(describing: WorkflowCompletion.self)) \(completion) for unknown identifier")
+                return
+            }
+            print("Received \(String(describing: WorkflowCompletion.self)) \(completion)")
             continuation.resume(returning: completion)
             self?.continuations.removeValue(forKey: completion.identifier)
         }.store(in: &subscriptions)
         self.bridge.publishContent(path: WorkflowFailure.path).sink { [weak self] (failure : WorkflowFailure) in
-            guard let continuation = self?.continuations[failure.identifier] else { return }
+            guard let continuation = self?.continuations[failure.identifier] else {
+                print("Received \(String(describing: WorkflowFailure.self)) \(failure) for unknown identifier")
+                return
+            }
+            print("Received \(String(describing: WorkflowFailure.self)) \(failure)")
             continuation.resume(throwing: failure.toError())
             self?.continuations.removeValue(forKey: failure.identifier)
         }.store(in: &subscriptions)
@@ -73,9 +81,8 @@ public class BridgeWorkflowPerformer {
             }
         }, onCancel: {
             // note : if we want immediate cancellation we can throw CancellationError on the continuation here
-            if let data = try? self.encoder.encode(WorkflowCancellation(identifier: identifier)) {
-                try? bridge.sendMessage(path: WorkflowCancellation.path, data:data)
-            }
+            try? bridge.send(path: WorkflowCancellation.path, content: WorkflowCancellation(identifier: identifier))
+            
         })
     }
     

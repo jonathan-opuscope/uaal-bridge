@@ -14,7 +14,7 @@
 #include <UnityFramework/NativeCallProxy.h>
 
 @interface AppDelegate : UIResponder<UIApplicationDelegate,
-    UnityFrameworkListener, NativeCallsProtocol, UnityNotificationsDelegate>
+  UnityFrameworkListener, NativeCallsProtocol>
 
 @property (strong, nonatomic) UIWindow *window;
 

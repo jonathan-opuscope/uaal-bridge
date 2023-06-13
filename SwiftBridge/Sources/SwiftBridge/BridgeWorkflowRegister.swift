@@ -25,9 +25,9 @@ extension WorkflowFailure {
     static func from(identifier: String, error : Error) -> WorkflowFailure {
         switch error {
         case is CancellationError:
-            return WorkflowFailure(identifier: identifier, type: WorkflowFailure.cancellationType, message: "")
+            return WorkflowFailure(identifier: identifier, type: WorkflowFailure.ErrorTypes.cancellationType, message: "")
         case let WorkflowError.invalidProcedure(procedure):
-            return WorkflowFailure(identifier: identifier, type: WorkflowFailure.invalidType, message: procedure)
+            return WorkflowFailure(identifier: identifier, type: WorkflowFailure.ErrorTypes.invalidType, message: procedure)
         case let WorkflowError.runtime(type, message):
             return WorkflowFailure(identifier: identifier, type: type, message: message)
         default:

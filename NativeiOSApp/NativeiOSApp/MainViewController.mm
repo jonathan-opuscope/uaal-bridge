@@ -161,7 +161,7 @@ NSDictionary* appLaunchOpts;
     [[self ufw] sendMessageToGOWithName: goName.UTF8String functionName: name.UTF8String message: msg.UTF8String];
 }
 
-- (void) payloadNotification:(NSString*)path:(NSString*)content
+- (void) sendMessage:(NSString*)path:(NSString*)content
 {
     NSDictionary* userInfo = @{
         @"BrideIncomingPathKey": path,
@@ -212,7 +212,6 @@ NSDictionary* appLaunchOpts;
     [[self ufw] setDataBundleId: "com.unity3d.framework"];
     [[self ufw] registerFrameworkListener: self];
     [NSClassFromString(@"FrameworkLibAPI") registerAPIforNativeCalls:self];
-    [NSClassFromString(@"FrameworkLibAPI") registerAPIforUnityNotifications:self];
     
     [[self ufw] runEmbeddedWithArgc: gArgc argv: gArgv appLaunchOpts: appLaunchOpts];
     

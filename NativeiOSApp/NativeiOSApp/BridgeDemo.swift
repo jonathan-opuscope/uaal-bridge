@@ -21,6 +21,10 @@ private enum ImplementationError : Error {
     private let workflowPerformer : BridgeWorkflowPerformer
     private let workflowRegister : BridgeWorkflowRegister
     
+    private enum Paths {
+        static let startTest = "/test/start"
+    }
+    
     private enum Procedures {
         static let immediateGreeting = "/greeting/immediate"
         static let delayedGreeting = "/greeting/delayed"
@@ -62,6 +66,7 @@ private enum ImplementationError : Error {
     @objc public func start() {
         Task {
             try await runAll()
+            try bridge.send(path: Paths.startTest, content: "")
         }
     }
     
@@ -74,14 +79,14 @@ private enum ImplementationError : Error {
     
     private func testImmediateWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
-        print("BridgeDemo testImmediateWorkflow start")
+        print("BridgeDemo testImmediateWorkflow start \(payload)")
         let result : TestResult = try await workflowPerformer.perform(procedure: Procedures.immediateGreeting, payload: payload)
         print("BridgeDemo testImmediateWorkflow result \(result)")
     }
     
     private func testDelayedWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
-        print("BridgeDemo testDelayedWorkflow start")
+        print("BridgeDemo testDelayedWorkflow start \(payload)")
         let result : TestResult = try await workflowPerformer.perform(procedure: Procedures.delayedGreeting, payload: payload)
         print("BridgeDemo testDelayedWorkflow result \(result)")
     }
@@ -90,17 +95,17 @@ private enum ImplementationError : Error {
         let payload1 = TestPayload(name: "Brigitte", number: 42, duration: 3)
         let payload2 = TestPayload(name: "Roger", number: 666, duration: 6)
         let payload3 = TestPayload(name: "Marguerite", number: 404, duration: 1)
-        print("BridgeDemo testConcurrentWorkflow start")
+        print("BridgeDemo testConcurrentWorkflow start \(payload1) \(payload2) \(payload3)")
         async let task1 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload1)
         async let task2 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload2)
         async let task3 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload3)
         let result1 : TestResult = try await task1
         let result2 : TestResult = try await task2
         let result3 : TestResult = try await task3
-        print("BridgeDemo testSimpleWorkflow result \(result1) \(result2) \(result3)")
+        print("BridgeDemo testConcurrentWorkflow result \(result1) \(result2) \(result3)")
     }
     
-    func testCancelledWorkflow() async throws {
+    private func testCancelledWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
         do {
             print("BridgeDemo testCancelledWorkflow start")
@@ -120,7 +125,7 @@ private enum ImplementationError : Error {
         }
     }
     
-    func testErrorWorkflow() async throws {
+    private func testErrorWorkflow() async throws {
         do {
             let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
             print("BridgeDemo testErrorWorkflow start")

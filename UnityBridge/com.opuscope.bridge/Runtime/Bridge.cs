@@ -12,6 +12,11 @@ namespace Opuscope.Bridge
 
         [JsonProperty("content")]
         public string Content { get; set; }
+
+        public override string ToString()
+        {
+            return $"{GetType().Name} {nameof(Path)} {Path} {nameof(Content)} {Content}";
+        }
     }
     
     public interface IBridgeListener
