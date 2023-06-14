@@ -6,6 +6,13 @@
 
 import Foundation
 import Combine
+import OSLog
+
+extension Logger {
+    private static var subsystem = Bundle.main.bundleIdentifier!
+    static let bridge = Logger(subsystem: subsystem, category: "swift_bridge")
+}
+
 
 public class Bridge {
     

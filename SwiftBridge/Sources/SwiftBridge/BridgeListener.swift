@@ -6,6 +6,7 @@
 
 import Foundation
 import Combine
+import OSLog
 
 public class BridgeNotification : NSObject {
     static let notificationName = NSNotification.Name(rawValue: "BrideIncomingPayloadNotification")
@@ -72,13 +73,20 @@ public extension Publisher {
     func decodeContent<T:Decodable>(path: String) -> AnyPublisher<T, Self.Failure> where Output == BridgeMessage {
         self
             .filter { $0.path == path}
-            .compactMap { try? JSONDecoder().decode(T.self, from: Data($0.content.utf8)) }
-            .eraseToAnyPublisher()
+            .decodeContent()
     }
     
     func decodeContent<T:Decodable>() -> AnyPublisher<T, Self.Failure> where Output == BridgeMessage {
         self
-            .compactMap { try? JSONDecoder().decode(T.self, from: Data($0.content.utf8)) }
+            .map {
+                do {
+                    return try JSONDecoder().decode(T.self, from: Data($0.content.utf8))
+                } catch {
+                    Logger.bridge.error("Decode to \(String(describing: T.self)) error \(error) content : \($0.content)")
+                    return nil
+                }
+            }
+            .compactMap { $0 }
             .eraseToAnyPublisher()
     }
 }

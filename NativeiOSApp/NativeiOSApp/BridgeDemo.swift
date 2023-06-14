@@ -11,6 +11,11 @@ import UIKit
 import SwiftBridge
 import OSLog
 
+extension Logger {
+    private static var subsystem = Bundle.main.bundleIdentifier!
+    static let bridge = Logger(subsystem: subsystem, category: "swift_bridge_demo")
+}
+
 private enum ImplementationError : Error {
     case tooBig
 }
@@ -55,7 +60,7 @@ private enum ImplementationError : Error {
                 throw ImplementationError.tooBig
             }
         } catch {
-            print("BridgeDemo error registering implementations \(error)")
+            Logger.bridge.error("BridgeDemo error registering implementations \(error)")
         }
     }
     
@@ -79,36 +84,36 @@ private enum ImplementationError : Error {
     
     private func testImmediateWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
-        print("BridgeDemo testImmediateWorkflow start \(payload)")
+        Logger.bridge.log("BridgeDemo testImmediateWorkflow start \(String(describing: payload))")
         let result : TestResult = try await workflowPerformer.perform(procedure: Procedures.immediateGreeting, payload: payload)
-        print("BridgeDemo testImmediateWorkflow result \(result)")
+        Logger.bridge.log("BridgeDemo testImmediateWorkflow result \(String(describing: result))")
     }
     
     private func testDelayedWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
-        print("BridgeDemo testDelayedWorkflow start \(payload)")
+        Logger.bridge.log("BridgeDemo testDelayedWorkflow start \(String(describing: payload))")
         let result : TestResult = try await workflowPerformer.perform(procedure: Procedures.delayedGreeting, payload: payload)
-        print("BridgeDemo testDelayedWorkflow result \(result)")
+        Logger.bridge.log("BridgeDemo testDelayedWorkflow result \(String(describing: result))")
     }
     
     private func testConcurrentWorkflow() async throws {
         let payload1 = TestPayload(name: "Brigitte", number: 42, duration: 3)
         let payload2 = TestPayload(name: "Roger", number: 666, duration: 6)
         let payload3 = TestPayload(name: "Marguerite", number: 404, duration: 1)
-        print("BridgeDemo testConcurrentWorkflow start \(payload1) \(payload2) \(payload3)")
+        Logger.bridge.log("BridgeDemo testConcurrentWorkflow start \(String(describing: payload1)) \(String(describing: payload2)) \(String(describing: payload3))")
         async let task1 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload1)
         async let task2 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload2)
         async let task3 = workflowPerformer.perform(TestResult.self, procedure: Procedures.delayedGreeting, payload: payload3)
         let result1 : TestResult = try await task1
         let result2 : TestResult = try await task2
         let result3 : TestResult = try await task3
-        print("BridgeDemo testConcurrentWorkflow result \(result1) \(result2) \(result3)")
+        Logger.bridge.log("BridgeDemo testConcurrentWorkflow result \(String(describing: result1)) \(String(describing: result2)) \(String(describing: result3))")
     }
     
     private func testCancelledWorkflow() async throws {
         let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
         do {
-            print("BridgeDemo testCancelledWorkflow start")
+            Logger.bridge.log("BridgeDemo testCancelledWorkflow start")
             // note cancellation requires Task or TaskGroup
             // https://www.hackingwithswift.com/quick-start/concurrency/how-to-cancel-a-task
             let task = Task { () -> TestResult in
@@ -117,22 +122,22 @@ private enum ImplementationError : Error {
             try await Task.sleep(nanoseconds: UInt64(3 * Double(NSEC_PER_SEC)))
             task.cancel()
             let result = try await task.value
-            print("BridgeDemo testCancelledWorkflow got unexpected result \(result)")
+            Logger.bridge.log("BridgeDemo testCancelledWorkflow got unexpected result \(String(describing: result))")
         } catch is CancellationError {
-            print("BridgeDemo testCancelledWorkflow got expected cancellation error")
+            Logger.bridge.log("BridgeDemo testCancelledWorkflow got expected cancellation error")
         } catch {
-            print("BridgeDemo testCancelledWorkflow got unexpected error \(error)")
+            Logger.bridge.error("BridgeDemo testCancelledWorkflow got unexpected error \(String(describing: error))")
         }
     }
     
     private func testErrorWorkflow() async throws {
         do {
             let payload = TestPayload(name: "Brigitte", number: 42, duration: 5)
-            print("BridgeDemo testErrorWorkflow start")
+            Logger.bridge.log("BridgeDemo testErrorWorkflow start")
             let result : TestResult = try await workflowPerformer.perform(procedure: Procedures.errorGreeting, payload: payload)
-            print("BridgeDemo testErrorWorkflow unexpected result \(result)")
+            Logger.bridge.log("BridgeDemo testErrorWorkflow unexpected result \(String(describing: result))")
         } catch {
-            print("BridgeDemo testErrorWorkflow got expected error \(error)")
+            Logger.bridge.log("BridgeDemo testErrorWorkflow got expected error \(String(describing: error))")
         }
     }
 }

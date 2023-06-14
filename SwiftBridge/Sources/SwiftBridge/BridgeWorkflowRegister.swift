@@ -132,13 +132,11 @@ public class BridgeWorkflowRegister {
     }
     
     private func reportFailure(identifier: String, error: Error) throws {
-        let failure = WorkflowFailure.from(identifier: identifier, error: error)
-        try bridge.send(path: WorkflowFailure.path, content: failure)
+        try bridge.send(path: WorkflowFailure.path, content: WorkflowFailure.from(identifier: identifier, error: error))
     }
     
     private func reportCompletion(identifier: String, result: String) throws {
-        let completion = WorkflowCompletion(identifier: identifier, result: result)
-        try bridge.send(path: WorkflowCompletion.path, content: result)
+        try bridge.send(path: WorkflowCompletion.path, content: WorkflowCompletion(identifier: identifier, result: result))
     }
     
     private class AsyncCallbackContainer<TPayload: Decodable, TResult: Encodable> : AsyncWorkflowImplementation {

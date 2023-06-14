@@ -6,6 +6,7 @@
 
 import Foundation
 import Combine
+import OSLog
 
 extension WorkflowFailure {
     func toError() -> Error {
@@ -33,20 +34,22 @@ public class BridgeWorkflowPerformer {
     public init(bridge: Bridge) {
         self.bridge = bridge
         self.bridge.publishContent(path: WorkflowCompletion.path).sink { [weak self] (completion : WorkflowCompletion) in
+            let description = "\(completion)"
             guard let continuation = self?.continuations[completion.identifier] else {
-                print("Received \(String(describing: WorkflowCompletion.self)) \(completion) for unknown identifier")
+                Logger.bridge.error("Received \(String(describing: WorkflowCompletion.self)) \(description) for unknown identifier")
                 return
             }
-            print("Received \(String(describing: WorkflowCompletion.self)) \(completion)")
+            Logger.bridge.log("Received \(String(describing: WorkflowCompletion.self)) \(description)")
             continuation.resume(returning: completion)
             self?.continuations.removeValue(forKey: completion.identifier)
         }.store(in: &subscriptions)
         self.bridge.publishContent(path: WorkflowFailure.path).sink { [weak self] (failure : WorkflowFailure) in
+            let description = "\(failure)"
             guard let continuation = self?.continuations[failure.identifier] else {
-                print("Received \(String(describing: WorkflowFailure.self)) \(failure) for unknown identifier")
+                Logger.bridge.error("Received \(String(describing: WorkflowFailure.self)) \(description) for unknown identifier")
                 return
             }
-            print("Received \(String(describing: WorkflowFailure.self)) \(failure)")
+            Logger.bridge.log("Received \(String(describing: WorkflowFailure.self)) \(description)")
             continuation.resume(throwing: failure.toError())
             self?.continuations.removeValue(forKey: failure.identifier)
         }.store(in: &subscriptions)
