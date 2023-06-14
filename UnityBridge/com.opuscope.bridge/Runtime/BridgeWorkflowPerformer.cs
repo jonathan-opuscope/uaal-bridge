@@ -4,6 +4,7 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using UniRx;
+using UnityEngine;
 
 namespace Opuscope.Bridge
 {
@@ -37,7 +38,7 @@ namespace Opuscope.Bridge
 
         public async UniTask<TResult> Perform<TPayload, TResult>(string procedure, TPayload payload, CancellationToken cancellationToken)
         {
-            WorkflowCompletion completion = await PerformWorkflow(procedure, payload, CancellationToken.None);
+            WorkflowCompletion completion = await PerformWorkflow(procedure, payload, cancellationToken);
             return JsonConvert.DeserializeObject<TResult>(completion.Result);
         }
         
@@ -50,9 +51,10 @@ namespace Opuscope.Bridge
             
             await using CancellationTokenRegistration cancellationAction = cancellationToken.Register(() =>
             {
+                Debug.Log($"{this} Register cancellation");
                 _bridge.Send(WorkflowCancellation.Path, new WorkflowCancellation {Identifier = identifier});
             });
-            
+
             string serialized = JsonConvert.SerializeObject(payload, _bridge.JsonSerializerSettings);
             WorkflowRequest request = new WorkflowRequest
             {
@@ -62,8 +64,18 @@ namespace Opuscope.Bridge
             };
             _bridge.Send(WorkflowRequest.Path, request);
 
-            // note : important to explicitly await so that the using subscriptions stay alive
-            return await taskCompletionSource.Task;
+            IDisposable updateSubscription = Observable.EveryUpdate().First(_ => cancellationToken.IsCancellationRequested)
+                .Subscribe(_ =>
+                {
+                    Debug.Log($"{this} Observable cancellation");
+                    _bridge.Send(WorkflowCancellation.Path, new WorkflowCancellation {Identifier = identifier});
+                });
+
+            using (updateSubscription)
+            {
+                // note : important to explicitly await so that the using cancellation subscriptions stay alive
+                return await taskCompletionSource.Task;   
+            }
         }
 
         public void Dispose()

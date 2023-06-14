@@ -21,6 +21,44 @@ extension WorkflowFailure {
     }
 }
 
+actor BridgeWorkflowPerformerState {
+    
+    enum StateError : Error {
+        case unknownContinuation(String)
+    }
+    
+    private var continuations : [String:CheckedContinuation<WorkflowCompletion, Error>] = [:]
+    
+    func store(_ continuation : CheckedContinuation<WorkflowCompletion, Error>, identifier: String) {
+        continuations[identifier] = continuation
+    }
+    
+    func complete(_ completion : WorkflowCompletion) throws {
+        guard let continuation = continuations[completion.identifier] else {
+            throw StateError.unknownContinuation(completion.identifier)
+        }
+        continuation.resume(returning: completion)
+        continuations.removeValue(forKey: completion.identifier)
+    }
+    
+    func fail(_ failure : WorkflowFailure) throws {
+        guard let continuation = continuations[failure.identifier] else {
+            throw StateError.unknownContinuation(failure.identifier)
+        }
+        continuation.resume(throwing: failure.toError())
+        continuations.removeValue(forKey: failure.identifier)
+    }
+    
+    func error(_ error : Error, identifier : String) throws {
+        guard let continuation = continuations[identifier] else {
+            throw StateError.unknownContinuation(identifier)
+        }
+        continuation.resume(throwing: error)
+        continuations.removeValue(forKey: identifier)
+    }
+    
+}
+
 public class BridgeWorkflowPerformer {
     
     private let bridge : Bridge
@@ -28,30 +66,21 @@ public class BridgeWorkflowPerformer {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     
+    private let state = BridgeWorkflowPerformerState()
+    
     private var subscriptions = Set<AnyCancellable>()
-    private var continuations : [String:CheckedContinuation<WorkflowCompletion, Error>] = [:]
     
     public init(bridge: Bridge) {
         self.bridge = bridge
-        self.bridge.publishContent(path: WorkflowCompletion.path).sink { [weak self] (completion : WorkflowCompletion) in
-            let description = "\(completion)"
-            guard let continuation = self?.continuations[completion.identifier] else {
-                Logger.bridge.error("Received \(String(describing: WorkflowCompletion.self)) \(description) for unknown identifier")
-                return
+        self.bridge.publishContent(path: WorkflowCompletion.path).sink { (completion : WorkflowCompletion) in
+            Task {
+                try await self.state.complete(completion)
             }
-            Logger.bridge.log("Received \(String(describing: WorkflowCompletion.self)) \(description)")
-            continuation.resume(returning: completion)
-            self?.continuations.removeValue(forKey: completion.identifier)
         }.store(in: &subscriptions)
-        self.bridge.publishContent(path: WorkflowFailure.path).sink { [weak self] (failure : WorkflowFailure) in
-            let description = "\(failure)"
-            guard let continuation = self?.continuations[failure.identifier] else {
-                Logger.bridge.error("Received \(String(describing: WorkflowFailure.self)) \(description) for unknown identifier")
-                return
+        self.bridge.publishContent(path: WorkflowFailure.path).sink { (failure : WorkflowFailure) in
+            Task {
+                try await self.state.fail(failure)
             }
-            Logger.bridge.log("Received \(String(describing: WorkflowFailure.self)) \(description)")
-            continuation.resume(throwing: failure.toError())
-            self?.continuations.removeValue(forKey: failure.identifier)
         }.store(in: &subscriptions)
     }
     
@@ -72,14 +101,15 @@ public class BridgeWorkflowPerformer {
         let identifier = UUID().uuidString
         return try await withTaskCancellationHandler(operation: {
             return try await withCheckedThrowingContinuation { (continuation : CheckedContinuation<WorkflowCompletion, Error>) in
-                continuations[identifier] = continuation
-                do {
-                    let payload = String(decoding: try encoder.encode(payload), as: UTF8.self)
-                    let request = WorkflowRequest(identifier: identifier, procedure: procedure, payload: payload)
-                    try bridge.send(path: WorkflowRequest.path, content: request)
-                } catch {
-                    continuation.resume(throwing: error)
-                    continuations.removeValue(forKey: identifier)
+                Task {
+                    await self.state.store(continuation, identifier: identifier)
+                    do {
+                        let payload = String(decoding: try encoder.encode(payload), as: UTF8.self)
+                        let request = WorkflowRequest(identifier: identifier, procedure: procedure, payload: payload)
+                        try self.bridge.send(path: WorkflowRequest.path, content: request)
+                    } catch {
+                        try await self.state.error(error, identifier: identifier)
+                    }
                 }
             }
         }, onCancel: {

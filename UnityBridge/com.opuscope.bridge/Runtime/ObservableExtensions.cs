@@ -13,7 +13,6 @@ namespace Opuscope.Bridge
             string path, 
             JsonSerializerSettings jsonSerializerSettings = null) where T : class
         {
-            jsonSerializerSettings ??= defaultSettings;
             return input
                 .Where(payload => payload.Path == path)
                 .Decode<T>(jsonSerializerSettings);

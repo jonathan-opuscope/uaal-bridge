@@ -1,12 +1,36 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using Opuscope.Bridge;
 using UniRx;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
+
+#if UNITY_EDITOR
+
+using UnityEditor;
+
+[CustomEditor(typeof(UnityBridgeDemo))] 
+public class UnityBridgeDemoEditor : Editor 
+{
+    public override void OnInspectorGUI() 
+    {
+        UnityBridgeDemo demo = (UnityBridgeDemo) target;
+        
+        DrawDefaultInspector();
+        if (GUILayout.Button("Test Cancellation"))
+        {
+            demo.RunCancellationTest();
+        }
+    }
+}
+#endif
+
 
 class NativeBridge
 {
@@ -15,6 +39,14 @@ class NativeBridge
     [DllImport(INTERNAL)]
     public static extern void sendMessage(string path, string content);
 #endif
+}
+
+class DummyBridgeMessenger : IBridgeMessenger
+{
+    public void SendMessage(string path, string content)
+    {
+        Debug.Log($"{this} {nameof(SendMessage)} to {path} : {content}");
+    }
 }
 
 class NativeBridgeMessenger : IBridgeMessenger
@@ -30,14 +62,18 @@ class NativeBridgeMessenger : IBridgeMessenger
     }
 }
 
-public class BridgeDemo : MonoBehaviour
+public class UnityBridgeDemo : MonoBehaviour
 {
+    private const string TEST_SEPARATOR = "\n----------------------------\n\n";
+    
     private BroadcastingBridgeListener _bridgeListener;
     private Bridge _bridge;
     private BridgeWorkflowPerformer _workflowPerformer;
     private BridgeWorkflowRegister _workflowRegister;
 
     private readonly CompositeDisposable _subscriptions = new();
+
+    private int _counter = 0;
     
     [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
     class TestPayload
@@ -85,7 +121,16 @@ public class BridgeDemo : MonoBehaviour
         Application.SetStackTraceLogType(LogType.Error, StackTraceLogType.None);
         
         _bridgeListener = new BroadcastingBridgeListener();
-        _bridge = new Bridge(new NativeBridgeMessenger(), _bridgeListener);
+
+        IBridgeMessenger messenger =
+#if UNITY_EDITOR
+            new DummyBridgeMessenger();
+#else
+            new NativeBridgeMessenger();
+#endif
+            
+
+        _bridge = new Bridge(messenger, _bridgeListener);
         _workflowPerformer = new BridgeWorkflowPerformer(_bridge);
         _workflowRegister = new BridgeWorkflowRegister(_bridge);
         
@@ -94,7 +139,7 @@ public class BridgeDemo : MonoBehaviour
             return new TestResult
             {
                 Message = $"Hello {payload.Name}", 
-                Processed = payload.Number + 2
+                Processed = payload.Number + 100
             };
         });
         
@@ -104,7 +149,7 @@ public class BridgeDemo : MonoBehaviour
             return new TestResult
             {
                 Message = $"Hello {payload.Name}", 
-                Processed = payload.Number + 2
+                Processed = payload.Number + 100
             };
         });
         
@@ -141,14 +186,31 @@ public class BridgeDemo : MonoBehaviour
         }
     }
 
+    public void RunCancellationTest()
+    {
+        TestCancelledWorkflow().Forget();
+    }
+    
     private async UniTask RunAll()
     {
         try
         {
+            Debug.Log(TEST_SEPARATOR);
             await TestImmediateWorkflow();
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            Debug.Log(TEST_SEPARATOR);
             await TestDelayedWorkflow();
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            Debug.Log(TEST_SEPARATOR);
+            await TestConcurrentWorkflow();
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            Debug.Log(TEST_SEPARATOR);
             await TestCancelledWorkflow();
-
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            Debug.Log(TEST_SEPARATOR);
+            await TestErrorWorkflow();
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            Debug.Log(TEST_SEPARATOR);
         }
         catch (Exception e)
         {
@@ -159,7 +221,7 @@ public class BridgeDemo : MonoBehaviour
     private async UniTask TestImmediateWorkflow()
     {
         // note : duration is not taken into account
-        TestPayload payload = new TestPayload {Name = "Gertrude", Number = 42, Duration = 1000};
+        TestPayload payload = new TestPayload {Name = "Gertrude", Number = _counter++, Duration = 1000};
         Debug.Log($"{GetType().Name} {nameof(TestImmediateWorkflow)} payload {payload}");
         TestResult result = await _workflowPerformer.Perform<TestPayload, TestResult>(Procedures.ImmediateGreeting, payload, CancellationToken.None);
         Debug.Log($"{GetType().Name} {nameof(TestImmediateWorkflow)} result {result}");
@@ -167,7 +229,7 @@ public class BridgeDemo : MonoBehaviour
     
     private async UniTask TestDelayedWorkflow()
     {
-        TestPayload payload = new TestPayload {Name = "Norbert", Number = 666, Duration = 5};
+        TestPayload payload = new TestPayload {Name = "Norbert", Number = _counter++, Duration = 5};
         Debug.Log($"{GetType().Name} {nameof(TestDelayedWorkflow)} payload {payload}");
         TestResult result = await _workflowPerformer.Perform<TestPayload, TestResult>(Procedures.DelayedGreeting, payload, CancellationToken.None);
         Debug.Log($"{GetType().Name} {nameof(TestDelayedWorkflow)} result {result}");
@@ -175,9 +237,9 @@ public class BridgeDemo : MonoBehaviour
     
     private async UniTask TestConcurrentWorkflow()
     {
-        TestPayload payload1 = new TestPayload {Name = "Brigitte", Number = 42, Duration = 2};
-        TestPayload payload2 = new TestPayload {Name = "Norbert", Number = 666, Duration = 5};
-        TestPayload payload3 = new TestPayload {Name = "Gertrude", Number = 404, Duration = 4};
+        TestPayload payload1 = new TestPayload {Name = "Brigitte", Number = _counter++, Duration = 2};
+        TestPayload payload2 = new TestPayload {Name = "Norbert", Number = _counter++, Duration = 5};
+        TestPayload payload3 = new TestPayload {Name = "Gertrude", Number = _counter++, Duration = 4};
         
         Debug.Log($"{GetType().Name} {nameof(TestConcurrentWorkflow)} payloads {payload1} {payload2} {payload3}");
         
@@ -194,31 +256,42 @@ public class BridgeDemo : MonoBehaviour
 
     private async UniTask TestCancelledWorkflow()
     {
-        TestPayload payload = new TestPayload {Name = "Norbert", Number = 666, Duration = 5};
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        TestPayload payload = new TestPayload {Name = "Norbert", Number = _counter++, Duration = 5};
         Debug.Log($"{GetType().Name} {nameof(TestCancelledWorkflow)} payload {payload}");
         CancellationTokenSource source = new CancellationTokenSource();
         source.CancelAfter(TimeSpan.FromSeconds(2));
         try
         {
             TestResult result = await _workflowPerformer.Perform<TestPayload, TestResult>(Procedures.DelayedGreeting, payload, source.Token);
+            Debug.LogError($"{GetType().Name} {nameof(TestCancelledWorkflow)} unexpected result {result} after {stopwatch.ElapsedMilliseconds} ms cancelled is {source.Token.IsCancellationRequested}");
         }
         catch (OperationCanceledException e)
         {
-            Debug.Log($"{GetType().Name} {nameof(TestCancelledWorkflow)} expected cancellation occured");
+            Debug.Log($"{GetType().Name} {nameof(TestCancelledWorkflow)} expected cancellation occured after {stopwatch.ElapsedMilliseconds} ms");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"{GetType().Name} {nameof(TestCancelledWorkflow)} unexpected error {e.GetType().Name} {e.Message} after {stopwatch.ElapsedMilliseconds} ms");
         }
     }
 
     private async UniTask TestErrorWorkflow()
     {
-        TestPayload payload = new TestPayload {Name = "Norbert", Number = 666, Duration = 5};
+        TestPayload payload = new TestPayload {Name = "Norbert", Number = _counter++, Duration = 5};
         Debug.Log($"{GetType().Name} {nameof(TestErrorWorkflow)} payload {payload}");
         try
         {
             TestResult result = await _workflowPerformer.Perform<TestPayload, TestResult>(Procedures.ErrorGreeting, payload, CancellationToken.None);
+            Debug.LogError($"{GetType().Name} {nameof(TestErrorWorkflow)} unexpected result {result}");
         }
         catch (RuntimeWorkflowException e)
         {
-            Debug.Log($"{GetType().Name} {nameof(TestCancelledWorkflow)} expected error");
+            Debug.Log($"{GetType().Name} {nameof(TestErrorWorkflow)} expected error");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"{GetType().Name} {nameof(TestErrorWorkflow)} unexpected error {e.GetType().Name} {e.Message}");
         }
     }
 }

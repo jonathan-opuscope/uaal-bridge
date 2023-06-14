@@ -174,7 +174,7 @@ NSDictionary* appLaunchOpts;
 {
     [[self ufw] sendMessageToGOWithName: "Cube" functionName: "ChangeColor" message: "yellow"];
     
-    BridgeDemo* demo = [[BridgeDemo alloc] init];
+    SwiftBridgeDemo* demo = [[SwiftBridgeDemo alloc] init];
     [demo start];
     
 }

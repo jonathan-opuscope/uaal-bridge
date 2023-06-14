@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using UniRx;
+using UnityEngine;
 
 namespace Opuscope.Bridge
 {
@@ -80,8 +81,16 @@ namespace Opuscope.Bridge
 
         public void Send<T>(string path, T content)
         {
-            string serialized = JsonConvert.SerializeObject(content, JsonSerializerSettings);
-            _messenger.SendMessage(path, serialized);
+            try
+            {
+                string serialized = JsonConvert.SerializeObject(content, JsonSerializerSettings);
+                _messenger.SendMessage(path, serialized);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to serialize message content {e}");
+                throw;
+            }
         }
 
         public IObservable<BridgeMessage> Publish(string path)
