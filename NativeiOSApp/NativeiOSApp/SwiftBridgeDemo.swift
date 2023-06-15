@@ -56,15 +56,19 @@ private enum ImplementationError : Error {
     
     private func registerImplementations() {
         do {
-            try workflowRegister.register(procedure: Procedures.delayedGreeting) { [weak self] (payload : TestPayload) in
-                try await self?.sleep(seconds: payload.duration)
-                return TestResult(message: "Hello \(payload.name)", processed: payload.number + 100)
+            try workflowRegister.register(procedure: Procedures.delayedGreeting) { (payload : TestPayload) in
+                let start = DispatchTime.now()
+                Logger.bridge.log("Running procedure for \(String(describing: payload)) start")
+                try await Task.sleep(nanoseconds: UInt64(payload.duration * Double(NSEC_PER_SEC)))
+                let end = DispatchTime.now()
+                Logger.bridge.log("Running procedure for \(String(describing: payload)) slept for \(end.uptimeNanoseconds - start.uptimeNanoseconds) ns")
+                return TestResult(message: "Hello \(payload.name)", processed: payload.number + 200)
             }
             try workflowRegister.register(procedure: Procedures.immediateGreeting) { (payload : TestPayload) in
                 return TestResult(message: "Hello \(payload.name)", processed: payload.number + 100)
             }
-            try workflowRegister.register(TestResult.self, procedure: Procedures.errorGreeting) { [weak self] (payload : TestPayload) in
-                try await self?.sleep(seconds: payload.duration)
+            try workflowRegister.register(TestResult.self, procedure: Procedures.errorGreeting) { (payload : TestPayload) in
+                try await Task.sleep(nanoseconds: UInt64(payload.duration * Double(NSEC_PER_SEC)))
                 throw ImplementationError.tooBig
             }
         } catch {
@@ -73,7 +77,11 @@ private enum ImplementationError : Error {
     }
     
     private func sleep(seconds: Double) async throws {
+        let start = DispatchTime.now()
+        Logger.bridge.log("Start sleep for \(seconds) seconds (\(UInt64(seconds * Double(NSEC_PER_SEC))) ns)")
         try await Task.sleep(nanoseconds: UInt64(seconds * Double(NSEC_PER_SEC)))
+        let end = DispatchTime.now()
+        Logger.bridge.log("Slept for \(end.uptimeNanoseconds - start.uptimeNanoseconds) ns")
     }
     
     @objc public func start() {

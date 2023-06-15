@@ -6,6 +6,7 @@
 
 import Foundation
 import Combine
+import OSLog
 
 private protocol WorkflowImplementation { }
 
@@ -76,7 +77,11 @@ public class BridgeWorkflowRegister {
                     self.incomingWorkflowTasks[request.identifier] = Task { () -> Void in
                         defer { self.incomingWorkflowTasks.removeValue(forKey: request.identifier) }
                         do {
+                            let start = DispatchTime.now()
                             let result = try await asyncImplementation.perform(payload: request.payload)
+                            let end = DispatchTime.now()
+                            let duration = Double(end.uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000_000
+                            Logger.bridge.log("Async implementation for \(request.procedure) performed in \(duration) seconds")
                             try self.reportCompletion(identifier: request.identifier, result: result)
                         } catch {
                             try? self.reportFailure(identifier: request.identifier, error: error)
